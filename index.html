@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090a0f">
+  <meta name="description" content="项目入口中心：从这里进入枪械进化游戏。">
+  <title>项目中心 · 游戏入口</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+      background: #090a0f;
+      color: #f8fafc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 32px 20px;
+      overflow-x: hidden;
+      background:
+        radial-gradient(ellipse at 18% 15%, rgba(6, 182, 212, .16), transparent 38%),
+        radial-gradient(ellipse at 84% 82%, rgba(168, 85, 247, .18), transparent 40%),
+        #090a0f;
+    }
+    .shell { width: min(100%, 960px); }
+    .topline {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 18px 4px;
+      color: #94a3b8;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+    .topline::before {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22d3ee;
+      box-shadow: 0 0 14px #22d3ee;
+      content: "";
+    }
+    .panel {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(28px, 6vw, 64px);
+      border: 1px solid rgba(148, 163, 184, .2);
+      border-radius: 28px;
+      background: rgba(15, 23, 42, .78);
+      box-shadow: 0 24px 90px rgba(0, 0, 0, .45), inset 0 1px rgba(255,255,255,.04);
+      backdrop-filter: blur(18px);
+    }
+    .panel::after {
+      position: absolute;
+      top: -110px;
+      right: -80px;
+      width: 290px;
+      height: 290px;
+      border: 1px solid rgba(34, 211, 238, .14);
+      border-radius: 50%;
+      box-shadow: 0 0 0 28px rgba(34,211,238,.025), 0 0 0 58px rgba(168,85,247,.025);
+      content: "";
+      pointer-events: none;
+    }
+    .intro { position: relative; z-index: 1; max-width: 650px; }
+    .eyebrow {
+      margin: 0 0 14px;
+      color: #67e8f9;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .18em;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(2.4rem, 8vw, 5rem);
+      line-height: 1.04;
+      letter-spacing: -.055em;
+    }
+    h1 span {
+      color: transparent;
+      background: linear-gradient(100deg, #67e8f9 4%, #a78bfa 55%, #f0abfc 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+    }
+    .description {
+      max-width: 520px;
+      margin: 20px 0 0;
+      color: #a8b3c7;
+      font-size: clamp(1rem, 2.5vw, 1.12rem);
+      line-height: 1.8;
+    }
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 46px 0 16px;
+      color: #e2e8f0;
+      font-size: .8rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+    }
+    .section-heading::after { height: 1px; flex: 1; background: rgba(148,163,184,.18); content: ""; }
+    .links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px; }
+    .entry {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-height: 110px;
+      padding: 20px;
+      border: 1px solid rgba(103, 232, 249, .24);
+      border-radius: 18px;
+      color: inherit;
+      text-decoration: none;
+      background: linear-gradient(135deg, rgba(8,145,178,.12), rgba(124,58,237,.1));
+      transition: transform .2s ease, border-color .2s ease, background .2s ease;
+    }
+    .entry:hover, .entry:focus-visible {
+      transform: translateY(-3px);
+      border-color: rgba(103,232,249,.7);
+      background: linear-gradient(135deg, rgba(8,145,178,.22), rgba(124,58,237,.18));
+      outline: none;
+    }
+    .icon {
+      display: grid;
+      width: 54px;
+      height: 54px;
+      flex: 0 0 54px;
+      place-items: center;
+      border: 1px solid rgba(103,232,249,.28);
+      border-radius: 15px;
+      color: #67e8f9;
+      background: rgba(8,145,178,.14);
+      font-size: 1.45rem;
+    }
+    .entry-copy { flex: 1; }
+    .entry-title { display: block; font-size: 1rem; font-weight: 800; }
+    .entry-description { display: block; margin-top: 6px; color: #94a3b8; font-size: .84rem; line-height: 1.5; }
+    .arrow { color: #67e8f9; font-size: 1.25rem; transition: transform .2s ease; }
+    .entry:hover .arrow { transform: translateX(4px); }
+    footer { margin: 24px 4px 0; color: #64748b; font-size: .78rem; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <p class="topline">Project 0 · Launchpad</p>
+    <section class="panel" aria-labelledby="page-title">
+      <div class="intro">
+        <p class="eyebrow">WELCOME TO THE HUB</p>
+        <h1 id="page-title">项目<span>中心</span></h1>
+        <p class="description">所有体验，从这里开始。选择一个入口，立即进入项目页面。</p>
+      </div>
+
+      <h2 class="section-heading">页面入口 <span>01</span></h2>
+      <nav class="links" aria-label="项目页面">
+        <a class="entry" href="./gun_evolution_shooter.html">
+          <span class="icon" aria-hidden="true">✦</span>
+          <span class="entry-copy">
+            <span class="entry-title">枪械进化 · 赛博无双</span>
+            <span class="entry-description">进入战场，击退怪物并进化你的武器。</span>
+          </span>
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+      </nav>
+    </section>
+    <footer>Neotope / project0</footer>
+  </main>
+</body>
+</html>
