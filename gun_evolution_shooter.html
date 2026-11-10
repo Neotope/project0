@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>枪械打怪进化升级 (Gun Evolution Shooter)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Orbitron', 'Noto Sans SC', sans-serif;
+            user-select: none;
+            overflow: hidden;
+            background-color: #090a0f;
+        }
+
+        /* 霓虹发光效果 */
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.8), 0 0 20px rgba(6, 182, 212, 0.4);
+        }
+        .neon-text-pink {
+            text-shadow: 0 0 8px rgba(236, 72, 153, 0.8), 0 0 20px rgba(236, 72, 153, 0.4);
+        }
+        .neon-border-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.5), inset 0 0 15px rgba(6, 182, 212, 0.2);
+        }
+        .neon-border-pink {
+            box-shadow: 0 0 15px rgba(236, 72, 153, 0.5), inset 0 0 15px rgba(236, 72, 153, 0.2);
+        }
+        
+        /* 进阶选择卡片悬停 */
+        .upgrade-card {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .upgrade-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 0 25px rgba(168, 85, 247, 0.6), inset 0 0 15px rgba(168, 85, 247, 0.3);
+        }
+
+        /* 隐藏滚动条 */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen relative flex items-center justify-center text-white select-none">
+
+    <!-- 游戏 Canvas 画布 -->
+    <canvas id="gameCanvas" class="absolute inset-0 w-full h-full block z-0"></canvas>
+
+    <!-- 顶栏 HUD (游戏UI) -->
+    <div id="gameHUD" class="absolute top-0 left-0 right-0 p-4 flex flex-col gap-3 pointer-events-none z-10 hidden">
+        <!-- 头部数据展示 -->
+        <div class="flex justify-between items-center max-w-5xl mx-auto w-full backdrop-blur-md bg-slate-900/60 p-3 rounded-2xl border border-slate-700/50 shadow-2xl">
+            <!-- 生命值与等级 -->
+            <div class="flex items-center gap-4 w-1/3">
+                <div class="flex items-center gap-2">
+                    <span id="levelBadge" class="bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-black text-xs px-2.5 py-1 rounded-md tracking-wider">LV.1</span>
+                </div>
+                <div class="flex-1">
+                    <div class="flex justify-between text-xs mb-1 font-semibold text-slate-300">
+                        <span><i class="fa-solid fa-heart text-red-500 mr-1"></i> HP</span>
+                        <span id="hpText">100 / 100</span>
+                    </div>
+                    <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                        <div id="hpBar" class="h-full bg-gradient-to-r from-red-600 to-emerald-400 transition-all duration-200" style="width: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 当前武器与波次 -->
+            <div class="flex flex-col items-center">
+                <div id="weaponTitle" class="text-xs font-bold text-cyan-400 tracking-wider uppercase mb-0.5">基础枪械</div>
+                <div class="text-lg font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500">
+                    WAVE <span id="waveText">1</span>
+                </div>
+            </div>
+
+            <!-- 统计数据: 击杀与金币 -->
+            <div class="flex items-center justify-end gap-6 w-1/3 text-sm font-bold">
+                <div class="flex items-center gap-2 text-amber-400">
+                    <i class="fa-solid fa-coins text-base"></i>
+                    <span id="coinsText">0</span>
+                </div>
+                <div class="flex items-center gap-2 text-rose-400">
+                    <i class="fa-solid fa-skull text-base"></i>
+                    <span id="killsText">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 经验条 (全屏宽度适配) -->
+        <div class="max-w-5xl mx-auto w-full">
+            <div class="w-full h-2 bg-slate-800/80 backdrop-blur rounded-full overflow-hidden border border-slate-700/50 p-0.5">
+                <div id="expBar" class="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-400 transition-all duration-300 rounded-full" style="width: 0%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. 开始主界面 -->
+    <div id="startScreen" class="absolute z-20 flex flex-col items-center justify-center p-6 text-center max-w-lg w-full">
+        <div class="backdrop-blur-xl bg-slate-900/80 p-8 rounded-3xl border border-cyan-500/30 neon-border-cyan flex flex-col items-center">
+            <div class="w-20 h-20 mb-4 bg-gradient-to-br from-cyan-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                <i class="fa-solid fa-gun text-4xl text-white"></i>
+            </div>
+            <h1 class="text-3xl md:text-4xl font-black mb-2 tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-300 to-pink-500">
+                GUN EVOLUTION
+            </h1>
+            <p class="text-xs text-slate-400 mb-6 tracking-widest uppercase">枪械进化 · 赛博无双割草</p>
+
+            <div class="bg-slate-800/60 rounded-xl p-4 mb-6 text-left w-full border border-slate-700 text-xs text-slate-300 space-y-2">
+                <div class="flex items-center gap-2"><i class="fa-solid fa-keyboard text-cyan-400 w-5 text-center"></i> <span>移动: <strong class="text-white">WASD / 方向键 / 拖拽鼠标</strong></span></div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-crosshairs text-pink-400 w-5 text-center"></i> <span>射击: <strong class="text-white">自动瞄准并持续射击</strong></span></div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-bolt text-amber-400 w-5 text-center"></i> <span>进化: <strong class="text-white">满经验触发武器变态形态与技能</strong></span></div>
+            </div>
+
+            <button id="startBtn" class="w-full py-4 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-black text-lg rounded-xl shadow-lg shadow-cyan-500/40 hover:shadow-cyan-500/70 transition transform hover:-translate-y-0.5 active:translate-y-0 tracking-wider">
+                开始战斗
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. 升级三选一面板 (游戏暂停) -->
+    <div id="upgradeScreen" class="absolute z-30 inset-0 flex flex-col items-center justify-center p-4 bg-black/75 backdrop-blur-md hidden">
+        <div class="text-center mb-6">
+            <h2 class="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-purple-300 to-cyan-300 tracking-wider mb-1">
+                LEVEL UP!
+            </h2>
+            <p class="text-sm text-slate-400">选择一项进化指令，强化你的枪械火力</p>
+        </div>
+
+        <div id="cardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-4xl w-full">
+            <!-- 动态注入卡片 -->
+        </div>
+    </div>
+
+    <!-- 3. 游戏结束结算界面 -->
+    <div id="gameOverScreen" class="absolute z-40 flex flex-col items-center justify-center p-6 text-center max-w-md w-full hidden">
+        <div class="backdrop-blur-xl bg-slate-900/90 p-8 rounded-3xl border border-rose-500/40 neon-border-pink flex flex-col items-center w-full">
+            <div class="w-16 h-16 mb-4 bg-rose-500/20 border border-rose-500/50 rounded-full flex items-center justify-center">
+                <i class="fa-solid fa-skull-crossbones text-3xl text-rose-500"></i>
+            </div>
+            <h2 class="text-3xl font-black text-rose-500 mb-1 tracking-wider">战损毁坏</h2>
+            <p class="text-xs text-slate-400 mb-6">你的武装阵线已被怪物吞噬</p>
+
+            <div class="grid grid-cols-2 gap-3 w-full mb-6">
+                <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+                    <div class="text-xs text-slate-400">坚持波次</div>
+                    <div id="finalWave" class="text-xl font-black text-amber-400 mt-1">1</div>
+                </div>
+                <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+                    <div class="text-xs text-slate-400">击杀怪物</div>
+                    <div id="finalKills" class="text-xl font-black text-rose-400 mt-1">0</div>
+                </div>
+                <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+                    <div class="text-xs text-slate-400">收集金币</div>
+                    <div id="finalCoins" class="text-xl font-black text-yellow-300 mt-1">0</div>
+                </div>
+                <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+                    <div class="text-xs text-slate-400">终极武器</div>
+                    <div id="finalWeapon" class="text-xs font-bold text-cyan-400 mt-2 truncate">基础手枪</div>
+                </div>
+            </div>
+
+            <button id="restartBtn" class="w-full py-3.5 bg-gradient-to-r from-rose-500 to-purple-600 hover:from-rose-400 hover:to-purple-500 text-white font-black text-base rounded-xl shadow-lg shadow-rose-500/40 hover:shadow-rose-500/70 transition transform hover:-translate-y-0.5 tracking-wider">
+                重新武装出击
+            </button>
+        </div>
+    </div>
+
+    <!-- 游戏脚本引擎 -->
+    <script>
+        // --- Sound Effects System (Web Audio API Synthesizer) ---
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+            playShoot(type = 'normal') {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                if (type === 'laser') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'shotgun') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                } else {
+                    // Standard gun sound
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.exponentialRampToValueAtTime(60, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                }
+            }
+            playExplode() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(20, now + 0.25);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+            playPickup() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+            playLevelUp() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const notes = [400, 523.25, 659.25, 783.99];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+                    gain.gain.setValueAtTime(0.12, now + idx * 0.07);
+                    gain.gain.linearRampToValueAtTime(0.01, now + idx * 0.07 + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.07);
+                    osc.stop(now + idx * 0.07 + 0.15);
+                });
+            }
+        }
+        const sfx = new SoundFX();
+
+        // --- 武器形态数据配置 ---
+        const WEAPON_FORMS = [
+            {
+                id: 1,
+                name: '战术手枪',
+                fireRate: 320, // 发射间隔ms
+                damage: 22,
+                speed: 13,
+                count: 1,
+                spread: 0,
+                color: '#00f3ff',
+                size: 4,
+                pierce: 1,
+                type: 'bullet',
+                desc: '基础点射武器，射速中等'
+            },
+            {
+                id: 2,
+                name: '暴风散弹枪',
+                fireRate: 480,
+                damage: 18,
+                speed: 11,
+                count: 5,
+                spread: 0.35,
+                color: '#ff9900',
+                size: 4.5,
+                pierce: 1,
+                type: 'bullet',
+                desc: '一次发射扇形多发散弹，近距离杀伤力极大'
+            },
+            {
+                id: 3,
+                name: '双发脉冲机关枪',
+                fireRate: 110,
+                damage: 16,
+                speed: 15,
+                count: 2,
+                spread: 0.08,
+                color: '#33ff57',
+                size: 3.5,
+                pierce: 1,
+                type: 'bullet',
+                desc: '超高连射速度，迅速压制群怪'
+            },
+            {
+                id: 4,
+                name: '高能高压激光 Cannon',
+                fireRate: 350,
+                damage: 45,
+                speed: 22,
+                count: 1,
+                spread: 0,
+                color: '#e033ff',
+                size: 7,
+                pierce: 4,
+                type: 'laser',
+                desc: '发射可贯穿多名敌人的强力高能光束'
+            },
+            {
+                id: 5,
+                name: '蜂群追空导弹',
+                fireRate: 280,
+                damage: 35,
+                speed: 9,
+                count: 3,
+                spread: 0.5,
+                color: '#ff3366',
+                size: 5,
+                pierce: 1,
+                type: 'homing',
+                desc: '发射能自动追踪敌人的微型导弹，附带范围打击'
+            },
+            {
+                id: 6,
+                name: '终极毁灭加特林',
+                fireRate: 70,
+                damage: 28,
+                speed: 17,
+                count: 3,
+                spread: 0.15,
+                color: '#ffff00',
+                size: 5,
+                pierce: 2,
+                type: 'bullet',
+                desc: '终极战备武器，极致的连射速度与穿透火力'
+            }
+        ];
+
+        // --- 静态被动强化技能库 ---
+        const PASSIVE_UPGRADES = [
+            { id: 'p_damage', name: '高爆弹头', desc: '武器伤害提升 +25%', icon: 'fa-bolt', apply: p => p.damageMult *= 1.25 },
+            { id: 'p_firerate', name: '快速连发', desc: '射击间隔缩短 -15%', icon: 'fa-gauge-high', apply: p => p.fireRateMult *= 0.85 },
+            { id: 'p_speed', name: '轻量引擎', desc: '移动速度提升 +18%', icon: 'fa-person-running', apply: p => p.speed *= 1.18 },
+            { id: 'p_crit', name: '精准光学镜', desc: '暴击率增加 +15% (2倍伤害)', icon: 'fa-crosshairs', apply: p => p.critChance += 0.15 },
+            { id: 'p_magnet', name: '磁能引力', desc: '经验与金币吸收半径大增', icon: 'fa-magnet', apply: p => p.magnetRadius += 70 },
+            { id: 'p_hp', name: '装甲重构', desc: '修复 30% HP 并提升上限 +30', icon: 'fa-shield-halved', apply: p => { p.maxHp += 30; p.hp = Math.min(p.maxHp, p.hp + 30); } },
+            { id: 'p_pierce', name: '穿甲扩容', desc: '所有子弹穿透目标数 +1', icon: 'fa-angles-right', apply: p => p.extraPierce += 1 }
+        ];
+
+        // --- 游戏引擎主逻辑 ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI 元素 DOM
+        const gameHUD = document.getElementById('gameHUD');
+        const startScreen = document.getElementById('startScreen');
+        const upgradeScreen = document.getElementById('upgradeScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const cardsContainer = document.getElementById('cardsContainer');
+
+        const hpBar = document.getElementById('hpBar');
+        const hpText = document.getElementById('hpText');
+        const expBar = document.getElementById('expBar');
+        const levelBadge = document.getElementById('levelBadge');
+        const weaponTitle = document.getElementById('weaponTitle');
+        const waveText = document.getElementById('waveText');
+        const coinsText = document.getElementById('coinsText');
+        const killsText = document.getElementById('killsText');
+
+        // 调整 Canvas 尺寸
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // 键盘按键监听
+        const keys = {};
+        window.addEventListener('keydown', e => keys[e.code] = true);
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        // 鼠标位置
+        const mouse = { x: canvas.width / 2, y: canvas.height / 2, down: false };
+        window.addEventListener('mousemove', e => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        window.addEventListener('mousedown', () => mouse.down = true);
+        window.addEventListener('mouseup', () => mouse.down = false);
+
+        // 移动端 Touch 支持
+        window.addEventListener('touchmove', e => {
+            if (e.touches.length > 0) {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+            }
+        }, { passive: true });
+
+        // 游戏核心状态变量
+        let gameState = 'START'; // START, PLAYING, UPGRADE, GAMEOVER
+        let lastTime = 0;
+        let wave = 1;
+        let kills = 0;
+        let coins = 0;
+        let waveTimer = 0;
+        let spawnTimer = 0;
+
+        // 实体容器
+        let player;
+        let bullets = [];
+        let enemies = [];
+        let particles = [];
+        let gems = [];
+        let floatingTexts = [];
+
+        // 玩家类
+        class Player {
+            constructor() {
+                this.x = canvas.width / 2;
+                this.y = canvas.height / 2;
+                this.radius = 20;
+                this.speed = 4.5;
+                this.maxHp = 100;
+                this.hp = 100;
+                this.level = 1;
+                this.exp = 0;
+                this.nextExp = 50;
+
+                // 强化属性乘数
+                this.damageMult = 1.0;
+                this.fireRateMult = 1.0;
+                this.critChance = 0.05;
+                this.magnetRadius = 110;
+                this.extraPierce = 0;
+
+                // 武器形态索引
+                this.weaponFormIndex = 0;
+                this.lastShotTime = 0;
+                this.angle = 0;
+            }
+
+            get currentWeapon() {
+                return WEAPON_FORMS[this.weaponFormIndex];
+            }
+
+            update(dt) {
+                // 键盘移动控制
+                let dx = 0;
+                let dy = 0;
+                if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
+                if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
+                if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
+                if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
+
+                if (dx !== 0 && dy !== 0) {
+                    dx *= 0.7071;
+                    dy *= 0.7071;
+                }
+
+                this.x += dx * this.speed;
+                this.y += dy * this.speed;
+
+                // 鼠标/触控辅助微调移动
+                if (mouse.down) {
+                    const mdx = mouse.x - this.x;
+                    const mdy = mouse.y - this.y;
+                    const dist = Math.hypot(mdx, mdy);
+                    if (dist > 20) {
+                        this.x += (mdx / dist) * (this.speed * 0.85);
+                        this.y += (mdy / dist) * (this.speed * 0.85);
+                    }
+                }
+
+                // 边界限制
+                this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+                this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
+
+                // 寻找离玩家最近的目标自动瞄准
+                let nearestEnemy = null;
+                let minDist = Infinity;
+                for (let enemy of enemies) {
+                    const d = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+                    if (d < minDist) {
+                        minDist = d;
+                        nearestEnemy = enemy;
+                    }
+                }
+
+                if (nearestEnemy) {
+                    this.angle = Math.atan2(nearestEnemy.y - this.y, nearestEnemy.x - this.x);
+                } else {
+                    // 无敌人时跟随鼠标视角
+                    this.angle = Math.atan2(mouse.y - this.y, mouse.x - this.x);
+                }
+
+                // 自动开火机制
+                const now = performance.now();
+                const actualFireRate = this.currentWeapon.fireRate * this.fireRateMult;
+                if (now - this.lastShotTime >= actualFireRate) {
+                    this.shoot();
+                    this.lastShotTime = now;
+                }
+            }
+
+            shoot() {
+                const w = this.currentWeapon;
+                sfx.playShoot(w.type);
+
+                const baseAngle = this.angle;
+                const count = w.count;
+                const totalSpread = w.spread;
+
+                for (let i = 0; i < count; i++) {
+                    let shotAngle = baseAngle;
+                    if (count > 1) {
+                        shotAngle = baseAngle - totalSpread / 2 + (totalSpread / (count - 1)) * i;
+                    }
+
+                    // 暴击判定
+                    const isCrit = Math.random() < this.critChance;
+                    const finalDamage = w.damage * this.damageMult * (isCrit ? 2.0 : 1.0);
+
+                    bullets.push(new Bullet(
+                        this.x + Math.cos(baseAngle) * 22,
+                        this.y + Math.sin(baseAngle) * 22,
+                        shotAngle,
+                        w.speed,
+                        finalDamage,
+                        w.color,
+                        w.size,
+                        w.pierce + this.extraPierce,
+                        w.type,
+                        isCrit
+                    ));
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // 绘制吸收磁场发光范围 (隐约)
+                ctx.beginPath();
+                ctx.arc(0, 0, this.magnetRadius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.03)';
+                ctx.fill();
+
+                // 旋转身体
+                ctx.rotate(this.angle);
+
+                // 绘制枪管
+                ctx.fillStyle = '#38bdf8';
+                ctx.shadowColor = '#0284c7';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(8, -4, 18, 8);
+
+                // 绘制玩家角色主体（光轮科技圆环）
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, this.radius);
+                grad.addColorStop(0, '#67e8f9');
+                grad.addColorStop(0.7, '#0284c7');
+                grad.addColorStop(1, '#0369a1');
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+
+                // 眼睛/指示灯
+                ctx.beginPath();
+                ctx.arc(8, 0, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            addExp(amount) {
+                this.exp += amount;
+                if (this.exp >= this.nextExp) {
+                    this.exp -= this.nextExp;
+                    this.level++;
+                    this.nextExp = Math.floor(this.nextExp * 1.35 + 25);
+                    triggerUpgradeScreen();
+                }
+                updateHUD();
+            }
+        }
+
+        // 子弹类
+        class Bullet {
+            constructor(x, y, angle, speed, damage, color, size, pierce, type, isCrit) {
+                this.x = x;
+                this.y = y;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.damage = damage;
+                this.color = color;
+                this.size = size;
+                this.pierce = pierce;
+                this.type = type;
+                this.isCrit = isCrit;
+                this.markedForDeletion = false;
+                this.life = 0;
+            }
+
+            update() {
+                this.life++;
+                // 追踪弹逻辑
+                if (this.type === 'homing') {
+                    let nearest = null;
+                    let minDist = 300;
+                    for (let enemy of enemies) {
+                        const d = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            nearest = enemy;
+                        }
+                    }
+                    if (nearest) {
+                        const targetAngle = Math.atan2(nearest.y - this.y, nearest.x - this.x);
+                        const currentAngle = Math.atan2(this.vy, this.vx);
+                        const speed = Math.hypot(this.vx, this.vy);
+                        // 缓慢转向
+                        const newAngle = currentAngle + (targetAngle - currentAngle) * 0.12;
+                        this.vx = Math.cos(newAngle) * speed;
+                        this.vy = Math.sin(newAngle) * speed;
+                    }
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 尾迹粒子
+                if (Math.random() < 0.6) {
+                    particles.push(new Particle(this.x, this.y, this.color, (Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 1.5, Math.random() * 3 + 1, 15));
+                }
+
+                // 超出屏幕清理
+                if (this.x < -50 || this.x > canvas.width + 50 || this.y < -50 || this.y > canvas.height + 50) {
+                    this.markedForDeletion = true;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 12;
+
+                if (this.type === 'laser') {
+                    // 贯穿激光
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x - this.vx * 1.5, this.y - this.vy * 1.5);
+                    ctx.lineWidth = this.size * 1.8;
+                    ctx.strokeStyle = this.color;
+                    ctx.lineCap = 'round';
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // 怪物敌人类
+        class Enemy {
+            constructor(type) {
+                // 衍生自屏幕边缘随机位置
+                if (Math.random() < 0.5) {
+                    this.x = Math.random() < 0.5 ? -30 : canvas.width + 30;
+                    this.y = Math.random() * canvas.height;
+                } else {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() < 0.5 ? -30 : canvas.height + 30;
+                }
+
+                this.type = type; // 'scout', 'chaser', 'tank', 'boss'
+                this.hitFlashTimer = 0;
+                this.markedForDeletion = false;
+
+                // 波次数值递加系数
+                const waveMult = 1 + (wave - 1) * 0.22;
+
+                switch (type) {
+                    case 'scout': // 疾风蜂（快速低血）
+                        this.radius = 12;
+                        this.speed = 3.2;
+                        this.hp = 25 * waveMult;
+                        this.maxHp = this.hp;
+                        this.color = '#f43f5e';
+                        this.expVal = 10;
+                        this.coinVal = 1;
+                        this.damage = 8;
+                        break;
+                    case 'chaser': // 杂兵（中规中矩）
+                        this.radius = 17;
+                        this.speed = 2.1;
+                        this.hp = 65 * waveMult;
+                        this.maxHp = this.hp;
+                        this.color = '#a855f7';
+                        this.expVal = 22;
+                        this.coinVal = 2;
+                        this.damage = 14;
+                        break;
+                    case 'tank': // 重装巨兽（高血量慢速）
+                        this.radius = 28;
+                        this.speed = 1.2;
+                        this.hp = 240 * waveMult;
+                        this.maxHp = this.hp;
+                        this.color = '#10b981';
+                        this.expVal = 60;
+                        this.coinVal = 6;
+                        this.damage = 25;
+                        break;
+                    case 'boss': // 波次领主 BOSS
+                        this.radius = 45;
+                        this.speed = 0.85;
+                        this.hp = 850 * waveMult;
+                        this.maxHp = this.hp;
+                        this.color = '#eab308';
+                        this.expVal = 250;
+                        this.coinVal = 30;
+                        this.damage = 40;
+                        break;
+                }
+            }
+
+            update() {
+                // 追踪玩家
+                const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                this.x += Math.cos(angle) * this.speed;
+                this.y += Math.sin(angle) * this.speed;
+
+                if (this.hitFlashTimer > 0) this.hitFlashTimer--;
+
+                // 与玩家碰撞伤害
+                const dist = Math.hypot(player.x - this.x, player.y - this.y);
+                if (dist < player.radius + this.radius) {
+                    player.hp -= this.damage * 0.05; // 持续碰撞伤害
+                    createExplosion(this.x, this.y, '#f43f5e', 2);
+                    if (player.hp <= 0) {
+                        player.hp = 0;
+                        gameOver();
+                    }
+                    updateHUD();
+                }
+            }
+
+            takeDamage(amount, isCrit = false) {
+                this.hp -= amount;
+                this.hitFlashTimer = 4; // 产生受击闪烁
+                floatingTexts.push(new FloatingText(this.x, this.y - 10, Math.round(amount).toString(), isCrit ? '#facc15' : '#ffffff', isCrit ? 20 : 14));
+
+                if (this.hp <= 0 && !this.markedForDeletion) {
+                    this.markedForDeletion = true;
+                    kills++;
+                    sfx.playExplode();
+                    createExplosion(this.x, this.y, this.color, this.type === 'boss' ? 35 : 12);
+
+                    // 掉落经验晶石与金币
+                    gems.push(new Gem(this.x, this.y, this.expVal, 'exp'));
+                    if (Math.random() < 0.6) {
+                        gems.push(new Gem(this.x + (Math.random() - 0.5) * 20, this.y + (Math.random() - 0.5) * 20, this.coinVal, 'coin'));
+                    }
+                    updateHUD();
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                if (this.hitFlashTimer > 0) {
+                    ctx.fillStyle = '#ffffff';
+                } else {
+                    ctx.fillStyle = this.color;
+                }
+
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = this.type === 'boss' ? 25 : 10;
+
+                // 绘制多边形怪物样式
+                ctx.beginPath();
+                const sides = this.type === 'boss' ? 8 : (this.type === 'tank' ? 6 : (this.type === 'scout' ? 3 : 5));
+                for (let i = 0; i < sides; i++) {
+                    const a = (i * Math.PI * 2) / sides;
+                    const r = this.radius;
+                    const px = Math.cos(a) * r;
+                    const py = Math.sin(a) * r;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.fill();
+
+                // 绘制怪物血条（若受伤）
+                if (this.hp < this.maxHp) {
+                    const barW = this.radius * 2;
+                    const barH = 4;
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                    ctx.fillRect(-barW / 2, -this.radius - 10, barW, barH);
+
+                    const hpRatio = Math.max(0, this.hp / this.maxHp);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(-barW / 2, -this.radius - 10, barW * hpRatio, barH);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // 掉落物晶石类 (EXP & Coin)
+        class Gem {
+            constructor(x, y, value, type) {
+                this.x = x;
+                this.y = y;
+                this.value = value;
+                this.type = type; // 'exp' | 'coin'
+                this.radius = type === 'exp' ? 5 : 6;
+                this.color = type === 'exp' ? '#c084fc' : '#fbbf24';
+                this.markedForDeletion = false;
+            }
+
+            update() {
+                // 磁力被动吸引逻辑
+                const dist = Math.hypot(player.x - this.x, player.y - this.y);
+                if (dist < player.magnetRadius) {
+                    const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                    const flySpeed = (1 - dist / player.magnetRadius) * 10 + 3;
+                    this.x += Math.cos(angle) * flySpeed;
+                    this.y += Math.sin(angle) * flySpeed;
+                }
+
+                // 拾取结算
+                if (dist < player.radius + this.radius) {
+                    this.markedForDeletion = true;
+                    sfx.playPickup();
+                    if (this.type === 'exp') {
+                        player.addExp(this.value);
+                    } else if (this.type === 'coin') {
+                        coins += this.value;
+                        updateHUD();
+                    }
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                if (this.type === 'exp') {
+                    // 菱形宝石
+                    ctx.moveTo(this.x, this.y - this.radius);
+                    ctx.lineTo(this.x + this.radius, this.y);
+                    ctx.lineTo(this.x, this.y + this.radius);
+                    ctx.lineTo(this.x - this.radius, this.y);
+                } else {
+                    // 金币圆形
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                }
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 绚丽击杀粒子效果
+        class Particle {
+            constructor(x, y, color, vx, vy, size, maxLife) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = vx;
+                this.vy = vy;
+                this.size = size;
+                this.life = 0;
+                this.maxLife = maxLife;
+                this.markedForDeletion = false;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+                this.life++;
+                if (this.life >= this.maxLife) this.markedForDeletion = true;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = 1 - this.life / this.maxLife;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 浮动伤害数字
+        class FloatingText {
+            constructor(x, y, text, color, fontSize) {
+                this.x = x + (Math.random() - 0.5) * 10;
+                this.y = y;
+                this.text = text;
+                this.color = color;
+                this.fontSize = fontSize;
+                this.life = 0;
+                this.maxLife = 30;
+                this.markedForDeletion = false;
+            }
+
+            update() {
+                this.y -= 0.8;
+                this.life++;
+                if (this.life >= this.maxLife) this.markedForDeletion = true;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = 1 - this.life / this.maxLife;
+                ctx.font = `900 ${this.fontSize}px Orbitron, sans-serif`;
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = '#000000';
+                ctx.shadowBlur = 4;
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        // 生成爆炸效果助手函数
+        function createExplosion(x, y, color, count = 15) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 6 + 1;
+                particles.push(new Particle(
+                    x, y, color,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    Math.random() * 4 + 1.5,
+                    Math.floor(Math.random() * 20 + 15)
+                ));
+            }
+        }
+
+        // 刷怪系统逻辑
+        function handleEnemySpawning(dt) {
+            spawnTimer += dt;
+            waveTimer += dt;
+
+            // 30秒提升一个波次
+            if (waveTimer >= 30000) {
+                waveTimer = 0;
+                wave++;
+                updateHUD();
+                // 每一波出只 Boss
+                enemies.push(new Enemy('boss'));
+            }
+
+            // 刷怪速率随着波次加快
+            const spawnInterval = Math.max(300, 1400 - wave * 100);
+
+            if (spawnTimer >= spawnInterval) {
+                spawnTimer = 0;
+                const rand = Math.random();
+                if (rand < 0.55) {
+                    enemies.push(new Enemy('chaser'));
+                } else if (rand < 0.85) {
+                    enemies.push(new Enemy('scout'));
+                } else {
+                    enemies.push(new Enemy('tank'));
+                }
+            }
+        }
+
+        // 升级三选一面板弹窗
+        function triggerUpgradeScreen() {
+            gameState = 'UPGRADE';
+            sfx.playLevelUp();
+            upgradeScreen.classList.remove('hidden');
+            cardsContainer.innerHTML = '';
+
+            // 抽取可选升级项 (结合武器形态进化 + 属性强化)
+            const options = [];
+
+            // 1. 是否可进行武器形态进化
+            if (player.weaponFormIndex < WEAPON_FORMS.length - 1) {
+                const nextWeapon = WEAPON_FORMS[player.weaponFormIndex + 1];
+                options.push({
+                    type: 'weapon',
+                    data: nextWeapon,
+                    title: `形态进化: ${nextWeapon.name}`,
+                    desc: nextWeapon.desc,
+                    icon: 'fa-gun',
+                    color: 'from-cyan-500 to-blue-600'
+                });
+            }
+
+            // 2. 从被动强化库中随机取
+            const shuffledPassives = [...PASSIVE_UPGRADES].sort(() => 0.5 - Math.random());
+            for (let p of shuffledPassives) {
+                if (options.length >= 3) break;
+                options.push({
+                    type: 'passive',
+                    data: p,
+                    title: p.name,
+                    desc: p.desc,
+                    icon: p.icon,
+                    color: 'from-purple-500 to-pink-600'
+                });
+            }
+
+            // 渲染三选一卡片 UI
+            options.forEach(opt => {
+                const card = document.createElement('div');
+                card.className = `upgrade-card bg-slate-800/90 border border-slate-700 hover:border-purple-500 rounded-2xl p-5 flex flex-col justify-between cursor-pointer backdrop-blur-md`;
+                card.innerHTML = `
+                    <div>
+                        <div class="w-14 h-14 mb-4 rounded-xl bg-gradient-to-br ${opt.color} flex items-center justify-center shadow-md">
+                            <i class="fa-solid ${opt.icon} text-2xl text-white"></i>
+                        </div>
+                        <div class="text-xs font-bold text-purple-400 tracking-wider mb-1">${opt.type === 'weapon' ? '【 枪械进化 】' : '【 属性强化 】'}</div>
+                        <h3 class="text-lg font-black text-white mb-2">${opt.title}</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">${opt.desc}</p>
+                    </div>
+                    <button class="mt-5 w-full py-2 bg-slate-700/80 hover:bg-purple-600 text-white text-xs font-bold rounded-lg transition">
+                        选择强化
+                    </button>
+                `;
+
+                card.addEventListener('click', () => {
+                    if (opt.type === 'weapon') {
+                        player.weaponFormIndex++;
+                    } else if (opt.type === 'passive') {
+                        opt.data.apply(player);
+                    }
+                    resumeGame();
+                });
+
+                cardsContainer.appendChild(card);
+            });
+        }
+
+        // 恢复游戏
+        function resumeGame() {
+            upgradeScreen.classList.add('hidden');
+            gameState = 'PLAYING';
+            lastTime = performance.now();
+            updateHUD();
+        }
+
+        // 更新 UI 界面数值
+        function updateHUD() {
+            hpBar.style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
+            hpText.textContent = `${Math.ceil(player.hp)} / ${player.maxHp}`;
+
+            expBar.style.width = `${Math.min(100, (player.exp / player.nextExp) * 100)}%`;
+            levelBadge.textContent = `LV.${player.level}`;
+
+            weaponTitle.textContent = player.currentWeapon.name;
+            waveText.textContent = wave;
+            coinsText.textContent = coins;
+            killsText.textContent = kills;
+        }
+
+        // 游戏结束
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            document.getElementById('finalWave').textContent = wave;
+            document.getElementById('finalKills').textContent = kills;
+            document.getElementById('finalCoins').textContent = coins;
+            document.getElementById('finalWeapon').textContent = player.currentWeapon.name;
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        // 初始化/重置游戏
+        function initGame() {
+            sfx.init();
+            wave = 1;
+            kills = 0;
+            coins = 0;
+            waveTimer = 0;
+            spawnTimer = 0;
+
+            bullets = [];
+            enemies = [];
+            particles = [];
+            gems = [];
+            floatingTexts = [];
+
+            player = new Player();
+
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            upgradeScreen.classList.add('hidden');
+            gameHUD.classList.remove('hidden');
+
+            gameState = 'PLAYING';
+            lastTime = performance.now();
+            updateHUD();
+        }
+
+        // 核心游戏循环
+        function gameLoop(timestamp) {
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            if (gameState === 'PLAYING') {
+                // 1. 清空画布
+                ctx.fillStyle = '#090a0f';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 绘制网格背景
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+                ctx.lineWidth = 1;
+                const gridSize = 40;
+                for (let x = 0; x < canvas.width; x += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, canvas.height);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < canvas.height; y += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+                }
+
+                // 2. 逻辑更新
+                handleEnemySpawning(dt);
+                player.update(dt);
+
+                // 更新子弹与碰撞
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    const b = bullets[i];
+                    b.update();
+
+                    // 检测子弹击中怪物
+                    for (let enemy of enemies) {
+                        const dist = Math.hypot(b.x - enemy.x, b.y - enemy.y);
+                        if (dist < b.size + enemy.radius) {
+                            enemy.takeDamage(b.damage, b.isCrit);
+                            createExplosion(b.x, b.y, b.color, 4);
+
+                            b.pierce--;
+                            if (b.pierce <= 0) {
+                                b.markedForDeletion = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (b.markedForDeletion) bullets.splice(i, 1);
+                }
+
+                // 更新敌人
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    enemies[i].update();
+                    if (enemies[i].markedForDeletion) enemies.splice(i, 1);
+                }
+
+                // 更新掉落晶石
+                for (let i = gems.length - 1; i >= 0; i--) {
+                    gems[i].update();
+                    if (gems[i].markedForDeletion) gems.splice(i, 1);
+                }
+
+                // 更新粒子
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update();
+                    if (particles[i].markedForDeletion) particles.splice(i, 1);
+                }
+
+                // 更新浮动文字
+                for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                    floatingTexts[i].update();
+                    if (floatingTexts[i].markedForDeletion) floatingTexts.splice(i, 1);
+                }
+
+                // 3. 渲染绘制
+                gems.forEach(g => g.draw());
+                bullets.forEach(b => b.draw());
+                enemies.forEach(e => e.draw());
+                particles.forEach(p => p.draw());
+                player.draw();
+                floatingTexts.forEach(ft => ft.draw());
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 事件绑定
+        document.getElementById('startBtn').addEventListener('click', initGame);
+        document.getElementById('restartBtn').addEventListener('click', initGame);
+
+        // 启动 Frame 循环
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
