@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>火力防线：军火大亨</title>
+    <!-- Tailwind CSS for modern military UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #0b0f19;
+            color: #e2e8f0;
+            user-select: none;
+            overflow: hidden;
+        }
+        .font-tech {
+            font-family: 'Orbitron', sans-serif;
+        }
+        /* Custom scrollbar for tactical panels */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.8);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 3px;
+        }
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+        .radar-scan {
+            background: radial-gradient(circle, rgba(16,185,129,0.1) 0%, rgba(11,15,25,0.8) 70%);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col overflow-hidden">
+
+    <!-- Top Tactical Header / Navbar -->
+    <header class="h-16 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-6 z-20 shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center border border-blue-400 shadow-lg shadow-blue-500/50">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </div>
+            <div>
+                <h1 class="font-tech font-black text-xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">FIRELINE: ARSENAL</h1>
+                <p class="text-xs text-slate-400">火力防线：军火大亨 v1.0.0</p>
+            </div>
+        </div>
+
+        <!-- Dashboard Stats -->
+        <div class="flex items-center space-x-6">
+            <div class="bg-slate-800/80 border border-slate-700 px-4 py-1.5 rounded-lg flex items-center space-x-2 shadow-inner">
+                <span class="text-xs text-slate-400 font-tech">CREDITS:</span>
+                <span id="stat-money" class="font-tech font-bold text-amber-400 text-lg">$500</span>
+            </div>
+            <div class="bg-slate-800/80 border border-slate-700 px-4 py-1.5 rounded-lg flex items-center space-x-2 shadow-inner">
+                <span class="text-xs text-slate-400 font-tech">HEALTH:</span>
+                <span id="stat-health" class="font-tech font-bold text-emerald-400 text-lg">20 / 20</span>
+            </div>
+            <div class="bg-slate-800/80 border border-slate-700 px-4 py-1.5 rounded-lg flex items-center space-x-2 shadow-inner">
+                <span class="text-xs text-slate-400 font-tech">SCORE:</span>
+                <span id="stat-score" class="font-tech font-bold text-blue-400 text-lg">0</span>
+            </div>
+            <div class="bg-slate-800/80 border border-slate-700 px-4 py-1.5 rounded-lg flex items-center space-x-2 shadow-inner">
+                <span class="text-xs text-slate-400 font-tech">WAVE:</span>
+                <span id="stat-wave" class="font-tech font-bold text-purple-400 text-lg">0 (无限模式)</span>
+            </div>
+        </div>
+
+        <!-- Game Controls -->
+        <div class="flex items-center space-x-3">
+            <button id="btn-start-wave" onclick="startGameWave()" class="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-tech font-bold px-5 py-2 rounded-lg border border-emerald-400/50 shadow-lg shadow-emerald-900/50 transition transform active:scale-95 flex items-center space-x-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span id="btn-wave-text">部署下一波</span>
+            </button>
+            <button onclick="toggleSpeed()" id="btn-speed" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-tech px-3 py-2 rounded-lg border border-slate-700 transition">
+                1.0x
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Workspace -->
+    <div class="flex-1 flex relative overflow-hidden">
+        <!-- Canvas Game Arena -->
+        <div class="flex-1 relative bg-slate-950 flex items-center justify-center">
+            <canvas id="gameCanvas" class="shadow-2xl"></canvas>
+            
+            <!-- Floating Notification / Alert Banner -->
+            <div id="notification" class="absolute top-6 bg-slate-900/90 border border-blue-500/50 text-blue-300 px-6 py-2 rounded-xl font-tech tracking-wider shadow-2xl opacity-0 transition-opacity duration-300 pointer-events-none z-30">
+                通知提示信息
+            </div>
+        </div>
+
+        <!-- Right Tactical Sidebar / Control Panel -->
+        <aside class="w-96 bg-slate-900/95 border-l border-slate-800 flex flex-col z-10 shadow-2xl">
+            <!-- Panel Tabs or Header -->
+            <div class="p-4 border-b border-slate-800 bg-slate-900/85">
+                <h2 class="font-tech font-bold text-slate-200 tracking-wider flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <span>战术军火库管理</span>
+                </h2>
+                <p class="text-xs text-slate-400 mt-1">点击地图蓝色平台建造或升级您的防线</p>
+            </div>
+
+            <!-- Dynamic Info Area: Build Menu or Selected Turret Inspector -->
+        <div id="sidebar-content" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <!-- Default Build Shop View -->
+            <div id="build-menu">
+                <h3 class="text-xs font-tech text-slate-400 tracking-wider mb-3">可选军火装备列表 (共10款)</h3>
+                <div id="turret-shop-list" class="grid grid-cols-1 gap-2.5 max-h-[70vh] overflow-y-auto pr-1">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Selected Turret Inspector View -->
+            <div id="turret-inspector" class="hidden space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div>
+                        <span id="inspect-tier" class="text-[10px] font-tech px-2 py-0.5 bg-blue-900/60 text-blue-300 rounded border border-blue-500/30">基础通用</span>
+                        <h3 id="inspect-name" class="font-tech font-bold text-lg text-white mt-1">突击步枪</h3>
+                    </div>
+                    <button onclick="closeInspector()" class="text-slate-400 hover:text-white p-1.5 rounded-lg bg-slate-800 border border-slate-700">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Weapon Stats -->
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/60">
+                        <span class="text-slate-400 block">单发伤害</span>
+                        <span id="inspect-dmg" class="font-tech font-bold text-rose-400 text-sm">18</span>
+                    </div>
+                    <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/60">
+                        <span class="text-slate-400 block">攻击射程</span>
+                        <span id="inspect-range" class="font-tech font-bold text-blue-400 text-sm">160</span>
+                    </div>
+                    <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/60">
+                        <span class="text-slate-400 block">射击频率</span>
+                        <span id="inspect-speed" class="font-tech font-bold text-emerald-400 text-sm">1.2 /s</span>
+                    </div>
+                    <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/60">
+                        <span class="text-slate-400 block">累计击杀</span>
+                        <span id="inspect-kills" class="font-tech font-bold text-amber-400 text-sm">0</span>
+                    </div>
+                </div>
+
+                <!-- Proficiency / Evolution Bar -->
+                <div class="bg-slate-800/60 p-3 rounded-lg border border-slate-700/60">
+                    <div class="flex justify-between text-xs mb-1.5">
+                        <span class="text-slate-300 font-bold">武器熟练度 (满级解锁进化)</span>
+                        <span id="inspect-prof-text" class="font-tech text-amber-400">0 / 20</span>
+                    </div>
+                    <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                        <div id="inspect-prof-bar" class="bg-gradient-to-r from-amber-500 to-yellow-300 h-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Branch Evolution Choices -->
+                <div id="evolution-panel" class="hidden bg-amber-950/30 border border-amber-500/40 p-3 rounded-xl space-y-2">
+                    <h4 class="font-tech font-bold text-xs text-amber-400 flex items-center space-x-1">
+                        <span>⚡ 熟练度已满：选择分支进化方向</span>
+                    </h4>
+                    <div id="evolution-choices" class="space-y-2"></div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="space-y-2 pt-2">
+                    <button onclick="upgradeSelectedTurret()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-tech font-bold py-2.5 rounded-lg border border-blue-400/50 shadow-lg transition">
+                        <span id="btn-upgrade-text">升级武器 ($80)</span>
+                    </button>
+                    <button onclick="sellSelectedTurret()" class="w-full bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 font-tech text-xs py-2 rounded-lg border border-rose-800/60 transition">
+                        拆解回收军火 (+$<span id="inspect-sell-price">75</span>)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Tactical Legend / Radar mini status -->
+        <div class="p-3 bg-slate-950/60 border-t border-slate-800 text-xs text-slate-500 flex justify-between items-center">
+            <span>防线区域: SECTOR-07</span>
+            <span class="text-emerald-400 font-tech">● 信号稳定</span>
+        </div>
+    </aside>
+</div>
+        </aside>
+    </div>
+
+    <!-- Tactical Card Modal (Tactic Three-Choice) -->
+    <div id="card-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-900 border border-blue-500/50 rounded-2xl p-6 max-w-2xl w-full mx-4 shadow-2xl shadow-blue-900/50">
+            <div class="text-center mb-6">
+                <span class="text-xs font-tech px-3 py-1 bg-blue-900/60 text-blue-300 rounded-full border border-blue-500/30">战术补给指令</span>
+                <h2 class="font-tech font-black text-2xl text-white mt-2">波次胜利：选择战术增益卡牌</h2>
+                <p class="text-xs text-slate-400 mt-1">前线指挥部下发了三种战术支援方案，请选择一项加装至当前防御阵线。</p>
+            </div>
+            <div id="card-container" class="grid grid-cols-3 gap-4 mb-4">
+                <!-- 3 dynamic cards -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over / Victory Modal -->
+    <div id="gameover-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-900 border border-rose-500/50 rounded-2xl p-8 max-w-md w-full mx-4 text-center shadow-2xl shadow-rose-900/50">
+            <div id="gameover-icon" class="w-16 h-16 bg-rose-600/20 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-rose-500/50">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </div>
+            <h2 id="gameover-title" class="font-tech font-black text-3xl text-white mb-2">防线崩溃</h2>
+            <p id="gameover-desc" class="text-sm text-slate-400 mb-6">虫群与机械军团突破了最后防线，联邦基地失守。</p>
+            <div class="bg-slate-800/80 p-4 rounded-xl mb-6 border border-slate-700 space-y-2">
+                <div class="flex justify-between text-sm"><span class="text-slate-400 font-tech">最终得分:</span> <span id="final-score" class="font-tech font-bold text-blue-400">0</span></div>
+                <div class="flex justify-between text-sm"><span class="text-slate-400 font-tech">坚持波次:</span> <span id="final-wave" class="font-tech font-bold text-purple-400">0</span></div>
+            </div>
+            <button onclick="location.reload()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-tech font-bold py-3 rounded-xl shadow-lg shadow-blue-900/50 border border-blue-400/50 transition">
+                重新建立防线
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Logic & Engine Script -->
+    <script>
+        // --- Game Configuration & Definitions ---
+        const TURRET_TYPES = {
+            rifle: {
+                id: 'rifle',
+                name: '突击步枪',
+                tier: '基础通用',
+                desc: '多功能单兵自动步枪，平衡的射速与单体伤害。',
+                cost: 100,
+                range: 160,
+                damage: 18,
+                fireRate: 1.2,
+                bulletSpeed: 10,
+                color: '#3b82f6',
+                bulletColor: '#60a5fa',
+                bulletType: 'normal',
+                evolutions: [
+                    { id: 'rifle_rapid', name: '蜂群高射速步枪', desc: '射速大幅提升，加装轻量化枪机。', cost: 150, bonus: { fireRate: 2.6, damage: 14 } },
+                    { id: 'rifle_heavy', name: '重型战术步枪', desc: '穿甲口径，单发伤害大幅提升并附带穿透。', cost: 180, bonus: { damage: 45, range: 190, pierce: 2 } }
+                ]
+            },
+            smg: {
+                id: 'smg',
+                name: 'Vector冲锋枪',
+                tier: '近程压制',
+                desc: '超高射速，近距离快速清扫轻甲群怪。',
+                cost: 130,
+                range: 130,
+                damage: 8,
+                fireRate: 4.5,
+                bulletSpeed: 12,
+                color: '#10b981',
+                bulletColor: '#34d399',
+                bulletType: 'normal',
+                evolutions: [
+                    { id: 'smg_nano', name: '纳米毒素冲锋枪', desc: '子弹附带持续毒素损伤与流血。', cost: 170, bonus: { damage: 12, fireRate: 5.5 } },
+                    { id: 'smg_ap', name: '蜂群穿甲微冲', desc: '提高射速并附带轻微破甲。', cost: 190, bonus: { damage: 16, range: 145 } }
+                ]
+            },
+            gatling: {
+                id: 'gatling',
+                name: '加特林重机枪',
+                tier: '重火力弹幕',
+                desc: '多管重机枪，需要短暂预热，喷射撕裂一切敌人的弹幕。',
+                cost: 250,
+                range: 150,
+                damage: 10,
+                fireRate: 5.0,
+                bulletSpeed: 12,
+                color: '#f59e0b',
+                bulletColor: '#fbbf24',
+                bulletType: 'normal',
+                evolutions: [
+                    { id: 'gatling_depleted', name: '贫铀弹加特林', desc: '发射高密度贫铀弹，击碎重甲单位护甲。', cost: 300, bonus: { damage: 22 } },
+                    { id: 'gatling_twin', name: '双联超载加特林', desc: '双倍枪管，狂暴的弹幕输出效率。', cost: 350, bonus: { fireRate: 8.5, range: 170 } }
+                ]
+            },
+            autocannon: {
+                id: 'autocannon',
+                name: '25mm机炮塔',
+                tier: '破甲机关炮',
+                desc: '高爆穿甲弹，兼顾中等射速与强力破甲打硬靶。',
+                cost: 280,
+                range: 180,
+                damage: 38,
+                fireRate: 1.8,
+                bulletSpeed: 14,
+                color: '#d97706',
+                bulletColor: '#fef08a',
+                bulletType: 'normal',
+                evolutions: [
+                    { id: 'autocannon_ciws', name: '30mm近防机炮', desc: '超高频穿甲轰炸，对重甲精英单位致残。', cost: 360, bonus: { damage: 60, fireRate: 2.8 } },
+                    { id: 'autocannon_flak', name: '防空高爆机关炮', desc: '炮弹小范围防空爆裂，阻截空中与集群单位。', cost: 330, bonus: { damage: 50, splash: 45 } }
+                ]
+            },
+            sniper: {
+                id: 'sniper',
+                name: '反器材狙击枪',
+                tier: '远程狙杀',
+                desc: '.50口径反器材狙击步枪，超远射程与毁灭性的单点暴击。',
+                cost: 200,
+                range: 280,
+                damage: 90,
+                fireRate: 0.4,
+                bulletSpeed: 18,
+                color: '#8b5cf6',
+                bulletColor: '#c084fc',
+                bulletType: 'sniper',
+                evolutions: [
+                    { id: 'sniper_railgun', name: '电磁轨道狙击枪', desc: '光束直线穿透所有路径敌人，无视物理护甲。', cost: 350, bonus: { damage: 170, range: 330, pierce: 99 } },
+                    { id: 'sniper_explosive', name: '高爆反器材狙击', desc: '命中时引发小型范围爆炸溅射伤害。', cost: 300, bonus: { damage: 130, splash: 50 } }
+                ]
+            },
+            laser: {
+                id: 'laser',
+                name: '高能激光塔',
+                tier: '持续熔炼',
+                desc: '发射高能聚焦激光，对单一目标造成随时间递增的熔化伤害。',
+                cost: 320,
+                range: 210,
+                damage: 25,
+                fireRate: 4.0,
+                bulletSpeed: 99,
+                color: '#ec4899',
+                bulletColor: '#f472b6',
+                bulletType: 'laser',
+                evolutions: [
+                    { id: 'laser_gamma', name: '伽马射线切割仪', desc: '极高能切割光束，瞬间撕裂高血量泰坦Boss。', cost: 400, bonus: { damage: 65, range: 240 } },
+                    { id: 'laser_sweep', name: '广域热能扫射塔', desc: '折射光束同时切割照射目标周边敌军。', cost: 380, bonus: { damage: 40, splash: 40 } }
+                ]
+            },
+            rpg: {
+                id: 'rpg',
+                name: 'RPG火箭筒',
+                tier: '大范围AOE',
+                desc: '发射高爆火箭弹，对大范围内的敌方单位造成毁灭性AOE溅射。',
+                cost: 220,
+                range: 200,
+                damage: 75,
+                fireRate: 0.6,
+                bulletSpeed: 7,
+                color: '#ef4444',
+                bulletColor: '#f87171',
+                bulletType: 'rpg',
+                splash: 80,
+                evolutions: [
+                    { id: 'rpg_cluster', name: '集束炸弹发射器', desc: '爆炸后分裂出多枚子炸弹二次清杂。', cost: 320, bonus: { damage: 105, splash: 120 } },
+                    { id: 'rpg_napalm', name: '凝固汽油火箭筒', desc: '轰炸区域残留高温火焰，持续灼烧敌人。', cost: 300, bonus: { damage: 70, burn: true } }
+                ]
+            },
+            missile: {
+                id: 'missile',
+                name: '巡航导弹阵地',
+                tier: '超程追踪',
+                desc: '发射自动制导巡航导弹，全场大范围自动搜寻与精确打击。',
+                cost: 360,
+                range: 350,
+                damage: 130,
+                fireRate: 0.35,
+                bulletSpeed: 6,
+                color: '#f43f5e',
+                bulletColor: '#fb7185',
+                bulletType: 'missile',
+                splash: 90,
+                evolutions: [
+                    { id: 'missile_swarm', name: '蜂群导弹矩阵', desc: '每次齐射多发微型追踪导弹。', cost: 420, bonus: { damage: 90, fireRate: 0.7, splash: 65 } },
+                    { id: 'missile_nuke', name: '战术核爆微型导弹', desc: '超大范围核爆震荡，对范围内所有目标施加核辐射。', cost: 450, bonus: { damage: 260, splash: 160 } }
+                ]
+            },
+            tesla: {
+                id: 'tesla',
+                name: '特斯拉电弧塔',
+                tier: '黑科技链式',
+                desc: '释放高压闪电，在多个敌方单位之间跳跃电击，清怪利器。',
+                cost: 300,
+                range: 170,
+                damage: 40,
+                fireRate: 1.0,
+                bulletSpeed: 99,
+                color: '#06b6d4',
+                bulletColor: '#67e8f9',
+                bulletType: 'tesla',
+                chainCount: 3,
+                evolutions: [
+                    { id: 'tesla_storm', name: '雷暴矩阵发生器', desc: '电弧跳跃目标数翻倍，麻痹敌人移动。', cost: 380, bonus: { chainCount: 7, damage: 65, slow: 0.5 } },
+                    { id: 'tesla_plasma', name: '高能等离子电弧', desc: '单体电流极度强化，对重甲造成致命电击。', cost: 350, bonus: { damage: 110, chainCount: 2 } }
+                ]
+            },
+            cryo: {
+                id: 'cryo',
+                name: '冷冻喷射器',
+                tier: '战术控场',
+                desc: '喷射高压氮气雾，使范围内敌人大幅度减速并冻结。',
+                cost: 180,
+                range: 120,
+                damage: 8,
+                fireRate: 2.5,
+                bulletSpeed: 6,
+                color: '#38bdf8',
+                bulletColor: '#bae6fd',
+                bulletType: 'cryo',
+                slow: 0.6,
+                evolutions: [
+                    { id: 'cryo_absolute', name: '绝对零度雾化塔', desc: '极致低温，直接将普通敌军冰冻定格。', cost: 280, bonus: { damage: 20, freeze: true, slow: 0.85 } },
+                    { id: 'cryo_corrosive', name: '冰霜酸液混合喷', desc: '低温结合强酸，减速同时持续流血腐蚀。', cost: 260, bonus: { damage: 35, slow: 0.7, acid: true } }
+                ]
+            }
+        };
+
+        const ENEMY_TYPES = {
+            swarm: { name: '虫群先锋', hp: 80, speed: 1.8, reward: 12, size: 10, color: '#10b981', type: 'normal' },
+            armored: { name: '重甲机兵', hp: 320, speed: 0.9, reward: 30, size: 16, color: '#64748b', type: 'armored', armor: 0.5 },
+            flyer: { name: '空中侦察机', hp: 130, speed: 2.3, reward: 22, size: 13, color: '#f43f5e', type: 'flyer', flying: true },
+            gunship: { name: '重装武装直升机', hp: 420, speed: 1.5, reward: 45, size: 17, color: '#fb923c', type: 'flyer', flying: true },
+            bomber: { name: '隐形轰炸机', hp: 850, speed: 1.2, reward: 80, size: 21, color: '#38bdf8', type: 'flyer', flying: true },
+            boss: { name: '泰坦装甲巨兽', hp: 1500, speed: 0.6, reward: 150, size: 26, color: '#a855f7', type: 'boss', armor: 0.3 }
+        };
+
+        // --- Game State ---
+        let gameState = 'playing'; // playing, gameover
+        let money = 650;
+        let health = 20;
+        let maxHealth = 20;
+        let score = 0;
+        let wave = 0;
+        let gameSpeed = 1.0;
+        let waveInProgress = false;
+        let enemiesSpawnQueue = [];
+        let spawnTimer = 0;
+
+        let pathPoints = [];
+        let buildSlots = [];
+        let turrets = [];
+        let enemies = [];
+        let bullets = [];
+        let particles = [];
+        let floatingTexts = [];
+
+        let selectedSlot = null;
+        let selectedTurret = null;
+
+        let globalBuffs = {
+            damageMultiplier: 1.0,
+            rangeMultiplier: 1.0,
+            speedMultiplier: 1.0,
+            economyBonus: 1.0
+        };
+
+        // --- Initialization ---
+        window.onload = function () {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            initMapPath();
+            initBuildShop();
+
+            // Setup click interaction on canvas
+            canvas.addEventListener('click', handleCanvasClick);
+
+            // Start main game loop
+            requestAnimationFrame(gameLoop);
+        };
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            initMapPath(); // Recalculate path scaling if container resized
+        }
+
+        function initMapPath() {
+            const w = canvas.width;
+            const h = canvas.height;
+            // Tactical winding path across the canvas
+            pathPoints = [
+                { x: 0, y: h * 0.2 },
+                { x: w * 0.25, y: h * 0.2 },
+                { x: w * 0.25, y: h * 0.7 },
+                { x: w * 0.55, y: h * 0.7 },
+                { x: w * 0.55, y: h * 0.3 },
+                { x: w * 0.80, y: h * 0.3 },
+                { x: w * 0.80, y: h * 0.85 },
+                { x: w + 50, y: h * 0.85 }
+            ];
+
+            // Generate Fixed Build Slots along the path
+            buildSlots = [
+                { x: w * 0.12, y: h * 0.32, turret: null },
+                { x: w * 0.15, y: h * 0.08, turret: null },
+                { x: w * 0.35, y: h * 0.60, turret: null },
+                { x: w * 0.38, y: h * 0.85, turret: null },
+                { x: w * 0.45, y: h * 0.42, turret: null },
+                { x: w * 0.65, y: h * 0.20, turret: null },
+                { x: w * 0.68, y: h * 0.45, turret: null },
+                { x: w * 0.72, y: h * 0.72, turret: null },
+                { x: w * 0.90, y: h * 0.70, turret: null }
+            ];
+        }
+
+        function initBuildShop() {
+            const list = document.getElementById('turret-shop-list');
+            list.innerHTML = '';
+            for (let key in TURRET_TYPES) {
+                const t = TURRET_TYPES[key];
+                const item = document.createElement('div');
+                item.className = 'bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-blue-500/50 p-3 rounded-xl cursor-pointer transition flex items-center justify-between group';
+                item.onclick = () => buyTurret(key);
+                item.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center font-tech font-bold text-white shadow-md" style="background-color: ${t.color}">
+                            ${t.name.substring(0, 2)}
+                        </div>
+                        <div>
+                            <h4 class="font-tech font-bold text-sm text-white group-hover:text-blue-400 transition">${t.name}</h4>
+                            <p class="text-xs text-slate-400">${t.tier}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-tech font-bold text-amber-400 text-sm">$${t.cost}</span>
+                        <span class="block text-[10px] text-slate-500">点击部署</span>
+                    </div>
+                `;
+                list.appendChild(item);
+            }
+        }
+
+        // --- Game Loop Engine ---
+        let lastTime = performance.now();
+        function gameLoop(timestamp) {
+            let dt = (timestamp - lastTime) / 1000;
+            if (dt > 0.1) dt = 0.1; // clamp delta time
+            lastTime = timestamp;
+
+            let effectiveDt = dt * gameSpeed;
+
+            update(effectiveDt);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Update Logic ---
+        function update(dt) {
+            if (gameState !== 'playing') return;
+
+            // Handle enemy spawn queue safely
+            if (waveInProgress && enemiesSpawnQueue.length > 0) {
+                spawnTimer -= dt;
+                if (spawnTimer <= 0) {
+                    let typeKey = enemiesSpawnQueue.shift();
+                    enemies.push(new Enemy(typeKey));
+                    spawnTimer = 0.8 - Math.min(wave * 0.03, 0.4);
+                }
+            }
+
+            // Update Enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                e.update(dt);
+                if (e.reachedEnd) {
+                    health -= (e.isBoss ? 5 : 1);
+                    updateStatsDisplay();
+                    createFloatingText(canvas.width - 50, canvas.height * 0.85, `-${e.isBoss ? 5 : 1} HP`, '#ef4444');
+                    enemies.splice(i, 1);
+                    if (health <= 0) {
+                        triggerGameOver(false);
+                    }
+                } else if (e.hp <= 0) {
+                    // Enemy killed
+                    money += Math.round(e.reward * globalBuffs.economyBonus);
+                    score += e.scoreValue || 50;
+                    updateStatsDisplay();
+                    createFloatingText(e.x, e.y, `+$${Math.round(e.reward * globalBuffs.economyBonus)}`, '#fbbf24');
+                    
+                    // Add particles
+                    createExplosionParticles(e.x, e.y, e.color, 15);
+
+                    if (e.lastAttacker) {
+                        e.lastAttacker.addKills(1);
+                    }
+
+                    enemies.splice(i, 1);
+                }
+            }
+
+            // Check wave completion safely when spawn queue is empty and all enemies defeated
+            if (waveInProgress && enemiesSpawnQueue.length === 0 && enemies.length === 0) {
+                triggerWaveVictory();
+            }
+
+            // Update Turrets
+            turrets.forEach(t => t.update(dt));
+
+            // Update Bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.update(dt);
+                if (b.expired) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Update Particles & Floating Texts
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update(dt);
+                if (particles[i].alpha <= 0) particles.splice(i, 1);
+            }
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                floatingTexts[i].update(dt);
+                if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
+            }
+        }
+
+        // --- Render Engine ---
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Grid Background / Radar Scan lines
+            ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // 2. Draw Path
+            if (pathPoints.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+                for (let i = 1; i < pathPoints.length; i++) {
+                    ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+                }
+                ctx.strokeStyle = 'rgba(51, 65, 85, 0.8)';
+                ctx.lineWidth = 28;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.stroke();
+
+                // Inner glowing path core
+                ctx.strokeStyle = 'rgba(15, 23, 42, 0.9)';
+                ctx.lineWidth = 20;
+                ctx.stroke();
+
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.25)';
+                ctx.lineWidth = 6;
+                ctx.stroke();
+            }
+
+            // 3. Draw Build Slots
+            buildSlots.forEach(slot => {
+                ctx.beginPath();
+                ctx.arc(slot.x, slot.y, 22, 0, Math.PI * 2);
+                ctx.fillStyle = slot.turret ? 'rgba(15, 23, 42, 0.8)' : 'rgba(30, 58, 138, 0.4)';
+                ctx.fill();
+                ctx.strokeStyle = (selectedSlot === slot) ? '#60a5fa' : (slot.turret ? '#334155' : '#3b82f6');
+                ctx.lineWidth = (selectedSlot === slot) ? 3 : 2;
+                ctx.stroke();
+
+                if (!slot.turret) {
+                    ctx.fillStyle = '#60a5fa';
+                    ctx.font = '12px Orbitron';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('+', slot.x, slot.y);
+                }
+            });
+
+            // 4. Draw Turrets
+            turrets.forEach(t => t.draw(ctx));
+
+            // 5. Draw Enemies
+            enemies.forEach(e => e.draw(ctx));
+
+            // 6. Draw Bullets & Effects
+            bullets.forEach(b => b.draw(ctx));
+
+            // 7. Draw Particles & Floating Texts
+            particles.forEach(p => p.draw(ctx));
+            floatingTexts.forEach(ft => ft.draw(ctx));
+        }
+
+        // --- Game Entities ---
+        class Enemy {
+            constructor(typeKey) {
+                const template = ENEMY_TYPES[typeKey];
+                this.name = template.name;
+                this.maxHp = template.hp * (1 + (wave - 1) * 0.25);
+                this.hp = this.maxHp;
+                this.speed = template.speed;
+                this.reward = template.reward;
+                this.size = template.size;
+                this.color = template.color;
+                this.type = template.type;
+                this.flying = template.flying || false;
+                this.armor = template.armor || 0;
+                this.isBoss = (typeKey === 'boss');
+                this.scoreValue = Math.round(this.maxHp * 0.1);
+
+                this.pathIndex = 0;
+                this.x = pathPoints[0].x;
+                this.y = this.flying ? pathPoints[0].y + (Math.random() * 120 - 60) : pathPoints[0].y;
+                this.reachedEnd = false;
+                this.slowTimer = 0;
+                this.currentSpeed = this.speed;
+                this.lastAttacker = null;
+                this.rotorAngle = 0;
+            }
+
+            update(dt) {
+                if (this.flying) {
+                    this.rotorAngle += dt * 25;
+                }
+
+                // Handle status effects (slow / freeze)
+                if (this.slowTimer > 0) {
+                    this.slowTimer -= dt;
+                    this.currentSpeed = this.speed * 0.4;
+                } else {
+                    this.currentSpeed = this.speed;
+                }
+
+                // Air units fly straight across the battlefield ignoring ground turns
+                if (this.flying) {
+                    let targetX = pathPoints[pathPoints.length - 1].x;
+                    let targetY = pathPoints[pathPoints.length - 1].y;
+                    let dx = targetX - this.x;
+                    let dy = targetY - this.y;
+                    let dist = Math.hypot(dx, dy);
+                    let moveDist = this.currentSpeed * 60 * dt;
+
+                    // Update virtual pathIndex so turrets prioritize air units accurately based on progress
+                    this.pathIndex = Math.floor((this.x / canvas.width) * (pathPoints.length - 1));
+
+                    if (dist <= moveDist) {
+                        this.reachedEnd = true;
+                    } else {
+                        this.x += (dx / dist) * moveDist;
+                        this.y += (dy / dist) * moveDist;
+                    }
+                    return;
+                }
+
+                if (this.pathIndex < pathPoints.length - 1) {
+                    let target = pathPoints[this.pathIndex + 1];
+                    let dx = target.x - this.x;
+                    let dy = target.y - this.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    let moveDist = this.currentSpeed * 60 * dt;
+
+                    if (dist <= moveDist) {
+                        this.x = target.x;
+                        this.y = target.y;
+                        this.pathIndex++;
+                    } else {
+                        this.x += (dx / dist) * moveDist;
+                        this.y += (dy / dist) * moveDist;
+                    }
+                } else {
+                    this.reachedEnd = true;
+                }
+            }
+
+            draw(ctx) {
+                // Draw ground shadow for air units to give high-altitude depth
+                if (this.flying) {
+                    ctx.save();
+                    ctx.translate(this.x + 14, this.y + 24);
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.size * 0.9, this.size * 0.5, 0, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Body
+                ctx.beginPath();
+                if (this.isBoss) {
+                    ctx.rect(-this.size, -this.size, this.size * 2, this.size * 2);
+                } else if (this.flying) {
+                    // Sleek delta-wing aircraft / gunship silhouette pointing right
+                    ctx.moveTo(this.size * 1.3, 0);
+                    ctx.lineTo(-this.size, -this.size * 0.95);
+                    ctx.lineTo(-this.size * 0.5, 0);
+                    ctx.lineTo(-this.size, this.size * 0.95);
+                    ctx.closePath();
+                } else {
+                    ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                }
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Spinning rotor / thruster effect for air units
+                if (this.flying) {
+                    ctx.save();
+                    ctx.rotate(this.rotorAngle);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(-this.size * 1.1, 0);
+                    ctx.lineTo(this.size * 1.1, 0);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // HP Bar
+                if (this.hp < this.maxHp) {
+                    let barW = this.size * 2.2;
+                    let barH = 4;
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                    ctx.fillRect(-barW / 2, -this.size - 12, barW, barH);
+                    ctx.fillStyle = '#10b981';
+                    ctx.fillRect(-barW / 2, -this.size - 12, barW * (this.hp / this.maxHp), barH);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class Turret {
+            constructor(slot, typeKey) {
+                this.slot = slot;
+                this.x = slot.x;
+                this.y = slot.y;
+                this.typeKey = typeKey;
+                const def = TURRET_TYPES[typeKey];
+
+                this.name = def.name;
+                this.tier = def.tier;
+                this.range = def.range * globalBuffs.rangeMultiplier;
+                this.baseDamage = def.damage;
+                this.damage = def.damage * globalBuffs.damageMultiplier;
+                this.fireRate = def.fireRate * globalBuffs.speedMultiplier;
+                this.bulletSpeed = def.bulletSpeed;
+                this.color = def.color;
+                this.bulletColor = def.bulletColor;
+                this.bulletType = def.bulletType;
+                this.splash = def.splash || 0;
+                this.chainCount = def.chainCount || 0;
+                this.slow = def.slow || 0;
+
+                this.cost = def.cost;
+                this.level = 1;
+                this.kills = 0;
+                this.proficiency = 0;
+                this.maxProficiency = 20;
+                this.evolved = false;
+                this.evolutionData = def.evolutions || [];
+
+                this.cooldown = 0;
+                this.angle = 0;
+                this.rangeDashOffset = 0;
+            }
+
+            update(dt) {
+                this.rangeDashOffset -= dt * 28;
+                if (this.cooldown > 0) {
+                    this.cooldown -= dt;
+                }
+
+                // Find target (closest to end or closest enemy in range)
+                let target = null;
+                let minDist = 999999;
+
+                for (let e of enemies) {
+                    let dist = Math.hypot(e.x - this.x, e.y - this.y);
+                    if (dist <= this.range) {
+                        // prioritize enemy furthest along path (highest pathIndex)
+                        let priority = e.pathIndex * 1000 - dist;
+                        if (priority < minDist) {
+                            minDist = priority;
+                            target = e;
+                        }
+                    }
+                }
+
+                if (target) {
+                    // Aim at target
+                    this.angle = Math.atan2(target.y - this.y, target.x - this.x);
+
+                    if (this.cooldown <= 0) {
+                        this.shoot(target);
+                        this.cooldown = 1 / this.fireRate;
+                    }
+                }
+            }
+
+            shoot(target) {
+                if (this.bulletType === 'tesla') {
+                    // Instant chain lightning
+                    let hitEnemies = [target];
+                    target.hp -= this.damage;
+                    target.lastAttacker = this;
+
+                    let currentTarget = target;
+                    for (let c = 1; c < this.chainCount; c++) {
+                        let nextTarget = null;
+                        let minD = 150;
+                        for (let e of enemies) {
+                            if (!hitEnemies.includes(e)) {
+                                let d = Math.hypot(e.x - currentTarget.x, e.y - currentTarget.y);
+                                if (d < minD) {
+                                    minD = d;
+                                    nextTarget = e;
+                                }
+                            }
+                        }
+                        if (nextTarget) {
+                            nextTarget.hp -= this.damage * 0.75;
+                            nextTarget.lastAttacker = this;
+                            hitEnemies.push(nextTarget);
+                            currentTarget = nextTarget;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    bullets.push(new Bullet(this.x, this.y, target, this.bulletColor, 'tesla', this.damage, 0, hitEnemies));
+                } else if (this.bulletType === 'laser') {
+                    // Instant laser beam line
+                    target.hp -= this.damage * 0.25;
+                    target.lastAttacker = this;
+                    bullets.push(new Bullet(this.x, this.y, target, this.bulletColor, 'laser', this.damage * 0.25, 0, [target], this.splash));
+                } else {
+                    bullets.push(new Bullet(this.x, this.y, target, this.bulletColor, this.bulletType, this.damage, this.bulletSpeed, null, this.splash, this.slow, this, this.pierce || 1));
+                }
+            }
+
+            addKills(n) {
+                this.kills += n;
+                if (!this.evolved) {
+                    this.proficiency += n;
+                    if (this.proficiency >= this.maxProficiency) {
+                        this.proficiency = this.maxProficiency;
+                        if (selectedTurret === this) {
+                            showEvolutionPanel();
+                        }
+                    }
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Range circle if selected
+                if (selectedTurret === this) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.range, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(59, 130, 246, 0.08)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(59, 130, 246, 0.65)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([8, 6]);
+                    ctx.lineDashOffset = this.rangeDashOffset;
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.lineDashOffset = 0;
+                }
+
+                // Base Mount
+                ctx.beginPath();
+                ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                ctx.fillStyle = '#1e293b';
+                ctx.fill();
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Rotating Barrel / Gun Body
+                ctx.rotate(this.angle);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-6, -6, 22, 12);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(-6, -6, 22, 12);
+
+                ctx.restore();
+            }
+        }
+
+        class Bullet {
+            constructor(x, y, target, color, type, damage, speed, chainTargets = null, splash = 0, slow = 0, sourceTurret = null, pierce = 1) {
+                this.x = x;
+                this.y = y;
+                this.target = target;
+                this.color = color;
+                this.type = type;
+                this.damage = damage;
+                this.speed = speed;
+                this.chainTargets = chainTargets;
+                this.splash = splash;
+                this.slow = slow;
+                this.sourceTurret = sourceTurret;
+                this.pierce = pierce;
+                this.expired = false;
+                this.life = (type === 'tesla' || type === 'laser') ? 0.15 : 0.5;
+
+                if (target && type !== 'tesla' && type !== 'laser') {
+                    let angle = Math.atan2(target.y - y, target.x - x);
+                    this.vx = Math.cos(angle) * speed * 10;
+                    this.vy = Math.sin(angle) * speed * 10;
+                }
+            }
+
+            update(dt) {
+                if (this.type === 'tesla' || this.type === 'laser') {
+                    this.life -= dt;
+                    if (this.life <= 0) this.expired = true;
+                    return;
+                }
+
+                if (!this.target || this.target.hp <= 0) {
+                    this.expired = true;
+                    return;
+                }
+
+                // Homing missile mechanics
+                if (this.type === 'missile') {
+                    let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+                    this.vx = Math.cos(angle) * this.speed * 10;
+                    this.vy = Math.sin(angle) * this.speed * 10;
+                }
+
+                let dx = this.target.x - this.x;
+                let dy = this.target.y - this.y;
+                let dist = Math.hypot(dx, dy);
+
+                let moveDist = this.speed * 60 * dt;
+                if (dist <= moveDist) {
+                    this.applyDamage(this.target);
+                    this.expired = true;
+                } else {
+                    this.x += (dx / dist) * moveDist;
+                    this.y += (dy / dist) * moveDist;
+                }
+            }
+
+            draw(ctx) {
+                if (this.type === 'tesla' && this.chainTargets) {
+                    ctx.save();
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    let curr = { x: this.x, y: this.y };
+                    for (let t of this.chainTargets) {
+                        let midX = (curr.x + t.x) / 2 + (Math.random() * 16 - 8);
+                        let midY = (curr.y + t.y) / 2 + (Math.random() * 16 - 8);
+                        ctx.lineTo(midX, midY);
+                        ctx.lineTo(t.x, t.y);
+                        curr = t;
+                    }
+                    ctx.stroke();
+                    ctx.restore();
+                    return;
+                }
+
+                if (this.type === 'laser' && this.target) {
+                    ctx.save();
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = 3.5;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = this.color;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.target.x, this.target.y);
+                    ctx.stroke();
+                    ctx.restore();
+                    return;
+                }
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, (this.type === 'rpg' || this.type === 'missile') ? 5 : 3, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+
+            applyDamage(enemy) {
+                enemy.hp -= this.damage;
+                if (this.sourceTurret) enemy.lastAttacker = this.sourceTurret;
+
+                if (this.slow > 0) {
+                    enemy.slowTimer = 2.0;
+                }
+
+                if (this.splash > 0) {
+                    createExplosionParticles(this.x, this.y, '#f97316', 20);
+                    for (let e of enemies) {
+                        if (e !== enemy && Math.hypot(e.x - this.x, e.y - this.y) <= this.splash) {
+                            e.hp -= this.damage * 0.5;
+                            if (this.sourceTurret) e.lastAttacker = this.sourceTurret;
+                        }
+                    }
+                }
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                let angle = Math.random() * Math.PI * 2;
+                let speed = Math.random() * 4 + 1;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.alpha = 1.0;
+                this.decay = Math.random() * 0.03 + 0.02;
+            }
+            update(dt) {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.color = color;
+                this.life = 1.0;
+            }
+            update(dt) {
+                this.y -= 25 * dt;
+                this.life -= dt;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.font = 'bold 13px Orbitron';
+                ctx.fillStyle = this.color;
+                ctx.textAlign = 'center';
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        function createExplosionParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function createFloatingText(x, y, text, color) {
+            floatingTexts.push(new FloatingText(x, y, text, color));
+        }
+
+        // --- Interaction & UI Event Handlers ---
+        function handleCanvasClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            // Check if clicked on a build slot
+            let clickedSlot = null;
+            for (let slot of buildSlots) {
+                let dist = Math.hypot(slot.x - clickX, slot.y - clickY);
+                if (dist <= 24) {
+                    clickedSlot = slot;
+                    break;
+                }
+            }
+
+            if (clickedSlot) {
+                selectedSlot = clickedSlot;
+                if (clickedSlot.turret) {
+                    selectedTurret = clickedSlot.turret;
+                    showTurretInspector(selectedTurret);
+                } else {
+                    selectedTurret = null;
+                    showBuildMenu();
+                }
+            } else {
+                // Clicked empty space
+                selectedSlot = null;
+                selectedTurret = null;
+                showBuildMenu();
+            }
+        }
+
+        function showBuildMenu() {
+            document.getElementById('build-menu').classList.remove('hidden');
+            document.getElementById('turret-inspector').classList.add('hidden');
+        }
+
+        function showTurretInspector(t) {
+            document.getElementById('build-menu').classList.add('hidden');
+            document.getElementById('turret-inspector').classList.remove('hidden');
+
+            document.getElementById('inspect-name').innerText = t.name;
+            document.getElementById('inspect-tier').innerText = t.tier;
+            document.getElementById('inspect-dmg').innerText = Math.round(t.damage);
+            document.getElementById('inspect-range').innerText = Math.round(t.range);
+            document.getElementById('inspect-speed').innerText = t.fireRate.toFixed(1) + ' /s';
+            document.getElementById('inspect-kills').innerText = t.kills;
+            document.getElementById('inspect-sell-price').innerText = Math.round(t.cost * 0.75);
+
+            let profPct = (t.proficiency / t.maxProficiency) * 100;
+            document.getElementById('inspect-prof-text').innerText = `${t.proficiency} / ${t.maxProficiency}`;
+            document.getElementById('inspect-prof-bar').style.width = `${profPct}%`;
+
+            if (t.proficiency >= t.maxProficiency && !t.evolved) {
+                showEvolutionPanel();
+            } else {
+                document.getElementById('evolution-panel').classList.add('hidden');
+            }
+
+            let upgradeCost = Math.round(t.cost * 0.8);
+            document.getElementById('btn-upgrade-text').innerText = `升级武器 ($${upgradeCost})`;
+        }
+
+        function closeInspector() {
+            selectedTurret = null;
+            selectedSlot = null;
+            showBuildMenu();
+        }
+
+        function buyTurret(typeKey) {
+            if (!selectedSlot) {
+                showNotification('请先点击地图上的蓝色空置平台！');
+                return;
+            }
+            const def = TURRET_TYPES[typeKey];
+            if (money < def.cost) {
+                showNotification('联邦军费不足！');
+                return;
+            }
+
+            money -= def.cost;
+            updateStatsDisplay();
+
+            let newTurret = new Turret(selectedSlot, typeKey);
+            selectedSlot.turret = newTurret;
+            turrets.push(newTurret);
+
+            selectedTurret = newTurret;
+            showTurretInspector(newTurret);
+            showNotification(`成功部署军火：${def.name}`);
+        }
+
+        function upgradeSelectedTurret() {
+            if (!selectedTurret) return;
+            let cost = Math.round(selectedTurret.cost * 0.8);
+            if (money < cost) {
+                showNotification('军费不足以升级该武器！');
+                return;
+            }
+
+            money -= cost;
+            selectedTurret.level++;
+            selectedTurret.damage *= 1.35;
+            selectedTurret.range *= 1.1;
+            selectedTurret.cost += cost;
+            updateStatsDisplay();
+            showTurretInspector(selectedTurret);
+            showNotification(`${selectedTurret.name} 升级至 Lv.${selectedTurret.level}！`);
+        }
+
+        function sellSelectedTurret() {
+            if (!selectedTurret) return;
+            let refund = Math.round(selectedTurret.cost * 0.75);
+            money += refund;
+            updateStatsDisplay();
+
+            // Remove from array
+            let idx = turrets.indexOf(selectedTurret);
+            if (idx > -1) turrets.splice(idx, 1);
+
+            selectedTurret.slot.turret = null;
+            closeInspector();
+            showNotification(`武器回收成功，返还 $${refund}`);
+        }
+
+        function showEvolutionPanel() {
+            if (!selectedTurret || selectedTurret.evolved) return;
+            const panel = document.getElementById('evolution-panel');
+            panel.classList.remove('hidden');
+
+            const container = document.getElementById('evolution-choices');
+            container.innerHTML = '';
+
+            selectedTurret.evolutionData.forEach(evo => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full bg-slate-900/90 hover:bg-slate-900 border border-amber-500/40 hover:border-amber-400 p-3 rounded-lg text-left transition group';
+                btn.onclick = () => evolveTurret(evo);
+                btn.innerHTML = `
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-tech font-bold text-amber-300 text-sm group-hover:text-amber-200">${evo.name}</span>
+                        <span class="font-tech text-xs text-amber-400">$${evo.cost}</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400">${evo.desc}</p>
+                `;
+                container.appendChild(btn);
+            });
+        }
+
+        function evolveTurret(evo) {
+            if (money < evo.cost) {
+                showNotification('军费不足，无法完成分支进化研发！');
+                return;
+            }
+
+            money -= evo.cost;
+            selectedTurret.name = evo.name;
+            selectedTurret.tier = '进化分支';
+            selectedTurret.evolved = true;
+            selectedTurret.cost += evo.cost;
+
+            // Apply bonuses
+            if (evo.bonus.damage) selectedTurret.damage = evo.bonus.damage;
+            if (evo.bonus.fireRate) selectedTurret.fireRate = evo.bonus.fireRate;
+            if (evo.bonus.range) selectedTurret.range = evo.bonus.range;
+            if (evo.bonus.splash) selectedTurret.splash = evo.bonus.splash;
+            if (evo.bonus.chainCount) selectedTurret.chainCount = evo.bonus.chainCount;
+            if (evo.bonus.pierce) selectedTurret.pierce = evo.bonus.pierce;
+
+            updateStatsDisplay();
+            showTurretInspector(selectedTurret);
+            showNotification(`武器成功分支进化为：${evo.name}！`);
+        }
+
+        // --- Wave & Progression System ---
+        // --- Wave & Progression System (Endless Infinite Mode) ---
+        function startGameWave() {
+            if (waveInProgress || gameState !== 'playing') return;
+
+            wave++;
+            waveInProgress = true;
+            document.getElementById('stat-wave').innerText = `${wave} (无限模式)`;
+            document.getElementById('btn-start-wave').disabled = true;
+            document.getElementById('btn-start-wave').classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('btn-wave-text').innerText = '波次交火中...';
+
+            showNotification(`警报：第 ${wave} 波敌军狂潮入侵！`);
+
+            // Infinite scaling for enemy queue
+            enemiesSpawnQueue = [];
+            let baseCount = 6 + Math.floor(wave * 3.5);
+            let bossCount = Math.floor(wave / 5);
+
+            for (let i = 0; i < baseCount; i++) {
+                let typeKey = 'swarm';
+                let rand = Math.random();
+                if (wave >= 2 && rand < 0.25) typeKey = 'flyer';
+                if (wave >= 3 && rand >= 0.25 && rand < 0.55) typeKey = 'armored';
+                if (wave >= 4 && rand >= 0.55 && rand < 0.72) typeKey = 'gunship';
+                if (wave >= 6 && rand >= 0.72 && rand < 0.82) typeKey = 'bomber';
+                enemiesSpawnQueue.push(typeKey);
+            }
+
+            // Append scaling bosses for every 5 waves
+            for (let b = 0; b < bossCount; b++) {
+                enemiesSpawnQueue.push('boss');
+            }
+
+            spawnTimer = 0.4;
+        }
+
+        function triggerWaveVictory() {
+            waveInProgress = false;
+            document.getElementById('btn-start-wave').disabled = false;
+            document.getElementById('btn-start-wave').classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('btn-wave-text').innerText = '部署下一波';
+
+            // Endless Bonus money
+            let waveBonus = 120 + wave * 30;
+            money += waveBonus;
+            updateStatsDisplay();
+            showNotification(`第 ${wave} 波击退成功！收到无上限军费补给 $${waveBonus}`);
+
+            showTacticalCardModal();
+        }
+
+        function showTacticalCardModal() {
+            const modal = document.getElementById('card-modal');
+            const container = document.getElementById('card-container');
+            container.innerHTML = '';
+
+            const cardsPool = [
+                { title: '火力强化协议', desc: '全线所有军火攻击伤害永久提升 20%。', action: () => { globalBuffs.damageMultiplier += 0.2; turrets.forEach(t => t.damage *= 1.2); } },
+                { title: '战术射程雷达', desc: '全线所有军火攻击射程提升 15%。', action: () => { globalBuffs.rangeMultiplier += 0.15; turrets.forEach(t => t.range *= 1.15); } },
+                { title: '超载枪机模组', desc: '全线所有军火攻击射速提升 15%。', action: () => { globalBuffs.speedMultiplier += 0.15; turrets.forEach(t => t.fireRate *= 1.15); } },
+                { title: '联邦财政补贴', desc: '立即获得 $300 军费现金支持。', action: () => { money += 300; updateStatsDisplay(); } },
+                { title: '前线应急医疗', desc: '联邦基地恢复 5 点生命值。', action: () => { health = Math.min(maxHealth, health + 5); updateStatsDisplay(); } }
+            ];
+
+            // Pick 3 random distinct cards
+            let shuffled = [...cardsPool].sort(() => 0.5 - Math.random());
+            let selectedCards = shuffled.slice(0, 3);
+
+            selectedCards.forEach(card => {
+                const cardEl = document.createElement('div');
+                cardEl.className = 'bg-slate-800 hover:bg-slate-800/80 border border-slate-700 hover:border-blue-500 p-5 rounded-xl cursor-pointer transition flex flex-col justify-between group shadow-lg';
+                cardEl.onclick = () => {
+                    card.action();
+                    modal.classList.add('hidden');
+                    showNotification(`已装载战术卡牌：${card.title}`);
+                };
+                cardEl.innerHTML = `
+                    <div>
+                        <div class="w-10 h-10 bg-blue-600/30 text-blue-400 rounded-lg flex items-center justify-center font-tech font-bold mb-3 border border-blue-500/30">TACTIC</div>
+                        <h4 class="font-tech font-bold text-white text-base mb-2 group-hover:text-blue-400 transition">${card.title}</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">${card.desc}</p>
+                    </div>
+                    <div class="mt-6 text-center">
+                        <span class="text-xs font-tech text-blue-400 bg-blue-950 px-3 py-1.5 rounded border border-blue-800/60 block">点击选择装载</span>
+                    </div>
+                `;
+                container.appendChild(cardEl);
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        function toggleSpeed() {
+            if (gameSpeed === 1.0) {
+                gameSpeed = 2.0;
+                document.getElementById('btn-speed').innerText = '2.0x';
+                document.getElementById('btn-speed').classList.add('text-amber-400', 'border-amber-500/50');
+            } else {
+                gameSpeed = 1.0;
+                document.getElementById('btn-speed').innerText = '1.0x';
+                document.getElementById('btn-speed').classList.remove('text-amber-400', 'border-amber-500/50');
+            }
+        }
+
+        function updateStatsDisplay() {
+            document.getElementById('stat-money').innerText = `$${money}`;
+            document.getElementById('stat-health').innerText = `${health} / ${maxHealth}`;
+            document.getElementById('stat-score').innerText = score;
+        }
+
+        function showNotification(msg) {
+            const notif = document.getElementById('notification');
+            notif.innerText = msg;
+            notif.style.opacity = '1';
+            setTimeout(() => {
+                notif.style.opacity = '0';
+            }, 2500);
+        }
+
+        function triggerGameOver(isVictory) {
+            gameState = 'gameover';
+            const modal = document.getElementById('gameover-modal');
+            modal.classList.remove('hidden');
+
+            document.getElementById('gameover-icon').className = 'w-16 h-16 bg-rose-600/20 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-rose-500/50';
+            document.getElementById('gameover-icon').innerHTML = '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+            document.getElementById('gameover-title').innerText = '防线崩溃';
+            document.getElementById('gameover-title').className = 'font-tech font-black text-3xl text-rose-400 mb-2';
+            document.getElementById('gameover-desc').innerText = `敌方突破了最后防线。您在无限模式中一共抵抗了 ${wave} 波攻势！`;
+
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('final-wave').innerText = `${wave} 波 (无限模式)`;
+        }
+    </script>
+</body>
+</html>
